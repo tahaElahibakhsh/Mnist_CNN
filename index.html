@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Digit AI Draw</title>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+<style>
+body {
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: white;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  margin:0;
+}
+
+.card {
+  background: rgba(30,30,47,0.95);
+  padding: 40px 50px;
+  border-radius: 25px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+}
+
+canvas {
+  background: #fff;
+  border-radius: 15px;
+  width: 256px;
+  height: 256px;
+  image-rendering: pixelated;
+  cursor: crosshair;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  margin-bottom: 15px;
+}
+
+button {
+  margin:10px;
+  padding:12px 25px;
+  border:none;
+  border-radius:15px;
+  cursor:pointer;
+  font-weight:bold;
+  font-size: 16px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+}
+
+.clear { background:#ff4b5c; color:white; }
+.predict { background:#00c9ff; color:black; }
+
+.loader {
+  margin-top:20px;
+  border:5px solid #f3f3f3;
+  border-top:5px solid #00c9ff;
+  border-radius:50%;
+  width:35px;
+  height:35px;
+  animation:spin 1s linear infinite;
+  display:none;
+  margin-left:auto;
+  margin-right:auto;
+}
+
+@keyframes spin {
+  0% { transform:rotate(0deg); }
+  100% { transform:rotate(360deg); }
+}
+
+h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+  text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+h3 {
+  margin-top: 20px;
+  font-size: 22px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+</style>
+</head>
+
+<body>
+<div class="card">
+  <h2>Draw a Digit</h2>
+  <canvas id="pad" width="256" height="256"></canvas>
+  <br>
+  <button class="clear" onclick="clearPad()">Clear</button>
+  <button class="predict" onclick="sendImage()">Predict</button>
+  <div class="loader" id="loader"></div>
+  <h3 id="result"></h3>
+</div>
+
+<script>
+const canvas = document.getElementById("pad");
+const signaturePad = new SignaturePad(canvas, {
+  backgroundColor: 'white',
+  penColor: 'black',
+  minWidth: 5,
+  maxWidth: 18,
+  velocityFilterWeight: 0.1
+});
+
+function clearPad() {
+  signaturePad.clear();
+  document.getElementById("result").innerText = "";
+}
+
+function sendImage() {
+  if (signaturePad.isEmpty()) return alert("Draw a digit first!");
+
+  document.getElementById("loader").style.display = "block";
+  document.getElementById("result").innerText = "";
+
+  const resizedCanvas = document.createElement("canvas");
+  resizedCanvas.width = 28;
+  resizedCanvas.height = 28;
+  const resizedCtx = resizedCanvas.getContext("2d");
+  resizedCtx.drawImage(canvas, 0, 0, 28, 28);
+
+  resizedCanvas.toBlob(blob => {
+      const formData = new FormData();
+      formData.append("image", blob, "digit.png");
+
+      fetch("http://127.0.0.1:5000/predict", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("result").innerText =
+          `Prediction: ${data.prediction} | Confidence: ${data.confidence}%`;
+      })
+      .catch(err => {
+        document.getElementById("loader").style.display = "none";
+        alert("Error: " + err);
+      });
+  });
+}
+</script>
+</body>
+</html>
